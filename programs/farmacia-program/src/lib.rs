@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("Dt3R5Lmqtmj4LEW7UwRxatjGoEonqh1sD9MmDdb5hfem");
 
 #[program]
 pub mod farmacia_program {
@@ -11,7 +11,7 @@ pub mod farmacia_program {
         ctx: Context<CrearFarmacia>,
         nombre: String,
     ) -> Result<()> {
-        let farmacia = &mut ctx.accounts.farmacia_account;a
+        let farmacia = &mut ctx.accounts.farmacia_account;
         farmacia.dueno = *ctx.accounts.dueno.key;
         farmacia.nombre = nombre.clone();
         farmacia.medicamentos_registrados = Vec::new();

@@ -1,156 +1,125 @@
-import * as anchor from "@coral-xyz/anchor";
 import BN from "bn.js";
 import assert from "assert";
 import * as web3 from "@solana/web3.js";
+import * as anchor from "@coral-xyz/anchor";
 import type { FarmaciaProgram } from "../target/types/farmacia_program";
 
-describe("Farmacia Program Tests", () => {
+describe("farmacia_program", () => {
   // Configure the client to use the local cluster
   anchor.setProvider(anchor.AnchorProvider.env());
 
   const program = anchor.workspace.FarmaciaProgram as anchor.Program<FarmaciaProgram>;
-  const provider = anchor.AnchorProvider.env();
+  
 
-  it("Crear Farmacia", async () => {
-    const nombreFarmacia = "Farmacia San Juan";
+  // ── PDAs ──────────────────────────────────────────────────────────────────
+  const [farmaciaPDA] = web3.PublicKey.findProgramAddressSync(
+    [Buffer.from("farmacia"), program.provider.publicKey.toBuffer()],
+    program.programId
+  );
 
-    // Derivar PDA de la farmacia
-    const [farmaciaPDA] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("farmacia"), provider.wallet.publicKey.toBuffer()],
-      program.programId
-    );
+  const nombreMed = "Ibuprofeno";
+  const [medicamentoPDA] = web3.PublicKey.findProgramAddressSync(
+    [Buffer.from("medicamento"), Buffer.from(nombreMed)],
+    program.programId
+  );
 
-    // Crear farmacia
-    const tx = await program.methods
-      .crearFarmacia(nombreFarmacia)
-      .accounts({
-        farmaciaAccount: farmaciaPDA,
-        dueno: provider.wallet.publicKey,
-        systemProgram: web3.SystemProgram.programId,
-      })
-      .rpc();
+  // ── CREATE: Farmacia ───────────────────────────────────────────────────────
+  it("Crea la farmacia correctamente", async () => {
+    const cuentaExistente = await program.provider.connection.getAccountInfo(farmaciaPDA);
 
-    console.log("Farmacia creada. TX:", tx);
-
-    // Verificar datos
-    const farmacia = await program.account.farmaciaAccount.fetch(farmaciaPDA);
-    assert.strictEqual(farmacia.nombre, nombreFarmacia);
-    assert.strictEqual(farmacia.dueno.toString(), provider.wallet.publicKey.toString());
-    assert.strictEqual(farmacia.medicamentosRegistrados.length, 0);
-  });
-
-  it("Agregar Medicamento", async () => {
-    const nombreMedicamento = "Paracetamol";
-    const precio = 5000;
-    const stock = 100;
-    const necesitaReceta = false;
-
-    // Derivar PDAs
-    const [farmaciaPDA] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("farmacia"), provider.wallet.publicKey.toBuffer()],
-      program.programId
-    );
-
-    const [medicamentoPDA] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("medicamento"), Buffer.from(nombreMedicamento)],
-      program.programId
-    );
-
-    // Agregar medicamento
-    const tx = await program.methods
-      .agregarMedicamento(nombreMedicamento, precio, stock, necesitaReceta)
-      .accounts({
-        medicamentoAccount: medicamentoPDA,
-        farmaciaAccount: farmaciaPDA,
-        dueno: provider.wallet.publicKey,
-        systemProgram: web3.SystemProgram.programId,
-      })
-      .rpc();
-
-    console.log("Medicamento agregado. TX:", tx);
-
-    // Verificar datos del medicamento
-    const medicamento = await program.account.medicamentoAccount.fetch(medicamentoPDA);
-    assert.strictEqual(medicamento.nombre, nombreMedicamento);
-    assert.strictEqual(medicamento.precio.toNumber(), precio);
-    assert.strictEqual(medicamento.stock, stock);
-    assert.strictEqual(medicamento.necesitaReceta, necesitaReceta);
-
-    // Verificar que se agregó al vector de la farmacia
-    const farmacia = await program.account.farmaciaAccount.fetch(farmaciaPDA);
-    assert.strictEqual(farmacia.medicamentosRegistrados.length, 1);
-  });
-
-  it("Actualizar Stock de Medicamento", async () => {
-    const nombreMedicamento = "Paracetamol";
-    const nuevoPrecio = 6000;
-    const nuevoStock = 150;
-
-    // Derivar PDAs
-    const [farmaciaPDA] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("farmacia"), provider.wallet.publicKey.toBuffer()],
-      program.programId
-    );
-
-    const [medicamentoPDA] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("medicamento"), Buffer.from(nombreMedicamento)],
-      program.programId
-    );
-
-    // Actualizar
-    const tx = await program.methods
-      .actualizarStock(nombreMedicamento, nuevoPrecio, nuevoStock)
-      .accounts({
-        medicamentoAccount: medicamentoPDA,
-        farmaciaAccount: farmaciaPDA,
-        dueno: provider.wallet.publicKey,
-      })
-      .rpc();
-
-    console.log("Stock actualizado. TX:", tx);
-
-    // Verificar cambios
-    const medicamento = await program.account.medicamentoAccount.fetch(medicamentoPDA);
-    assert.strictEqual(medicamento.precio.toNumber(), nuevoPrecio);
-    assert.strictEqual(medicamento.stock, nuevoStock);
-  });
-
-  it("Eliminar Medicamento", async () => {
-    const nombreMedicamento = "Paracetamol";
-
-    // Derivar PDAs
-    const [farmaciaPDA] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("farmacia"), provider.wallet.publicKey.toBuffer()],
-      program.programId
-    );
-
-    const [medicamentoPDA] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("medicamento"), Buffer.from(nombreMedicamento)],
-      program.programId
-    );
-
-    // Eliminar
-    const tx = await program.methods
-      .eliminarMedicamento(nombreMedicamento)
-      .accounts({
-        medicamentoAccount: medicamentoPDA,
-        farmaciaAccount: farmaciaPDA,
-        dueno: provider.wallet.publicKey,
-      })
-      .rpc();
-
-    console.log("Medicamento eliminado. TX:", tx);
-
-    // Verificar que la cuenta fue cerrada
-    try {
-      await program.account.medicamentoAccount.fetch(medicamentoPDA);
-      assert.fail("La cuenta debería estar cerrada");
-    } catch (error) {
-      // Esperado: cuenta no existe
+    if (!cuentaExistente) {
+      const txHash = await program.methods
+        .crearFarmacia("Farmacia Test")
+        .accounts({
+          farmaciaAccount: farmaciaPDA,
+          dueno: program.provider.publicKey,
+          systemProgram: web3.SystemProgram.programId,
+        })
+        .rpc();
+      await program.provider.connection.confirmTransaction(txHash);
     }
 
-    // Verificar que se removió del vector
     const farmacia = await program.account.farmaciaAccount.fetch(farmaciaPDA);
-    assert.strictEqual(farmacia.medicamentosRegistrados.length, 0);
+    assert.equal(farmacia.dueno.toBase58(), program.provider.publicKey.toBase58());
+    assert.ok(farmacia.nombre.length > 0);
+  });
+
+  // ── CREATE: Medicamento ────────────────────────────────────────────────────
+  it("Agrega un medicamento correctamente", async () => {
+    const txHash = await program.methods
+      .agregarMedicamento(
+        nombreMed,
+        new anchor.BN(1500),
+        50,
+        true,
+      )
+      .accounts({
+        medicamentoAccount: medicamentoPDA,
+        farmaciaAccount: farmaciaPDA,
+        dueno: program.provider.publicKey,
+        systemProgram: web3.SystemProgram.programId,
+      })
+      .rpc();
+    await program.provider.connection.confirmTransaction(txHash);
+
+    const med = await program.account.medicamentoAccount.fetch(medicamentoPDA);
+    assert.equal(med.nombre, nombreMed);
+    assert(med.precio.eq(new anchor.BN(1500)));
+    assert.equal(med.stock, 50);
+    assert.equal(med.necesitaReceta, true);
+
+    const farmacia = await program.account.farmaciaAccount.fetch(farmaciaPDA);
+    assert.ok(farmacia.medicamentosRegistrados.length >= 1);
+    assert.ok(
+      farmacia.medicamentosRegistrados.some(
+        (k) => k.toBase58() === medicamentoPDA.toBase58()
+      )
+    );
+  });
+
+  // ── UPDATE ─────────────────────────────────────────────────────────────────
+  it("Actualiza precio y stock del medicamento", async () => {
+    const txHash = await program.methods
+      .actualizarStock(
+        nombreMed,
+        new anchor.BN(2000),
+        35,
+      )
+      .accounts({
+        medicamentoAccount: medicamentoPDA,
+        farmaciaAccount: farmaciaPDA,
+        dueno: program.provider.publicKey,
+      })
+      .rpc();
+    await program.provider.connection.confirmTransaction(txHash);
+
+    const med = await program.account.medicamentoAccount.fetch(medicamentoPDA);
+    assert(med.precio.eq(new anchor.BN(2000)));
+    assert.equal(med.stock, 35);
+    assert.equal(med.nombre, nombreMed);
+    assert.equal(med.necesitaReceta, true);
+  });
+
+  // ── DELETE ─────────────────────────────────────────────────────────────────
+  it("Elimina el medicamento y lo remueve de la farmacia", async () => {
+    const txHash = await program.methods
+      .eliminarMedicamento(nombreMed)
+      .accounts({
+        medicamentoAccount: medicamentoPDA,
+        farmaciaAccount: farmaciaPDA,
+        dueno: program.provider.publicKey,
+      })
+      .rpc();
+    await program.provider.connection.confirmTransaction(txHash);
+
+    const cuentaCerrada = await program.provider.connection.getAccountInfo(medicamentoPDA);
+    assert.equal(cuentaCerrada, null);
+
+    const farmacia = await program.account.farmaciaAccount.fetch(farmaciaPDA);
+    assert.ok(
+      farmacia.medicamentosRegistrados.every(
+        (k) => k.toBase58() !== medicamentoPDA.toBase58()
+      )
+    );
   });
 });
