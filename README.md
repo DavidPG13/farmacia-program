@@ -82,10 +82,3 @@ Ver ejemplos en:
 
 Actualizar después del primer deploy en `Anchor.toml` y `lib.rs`
 
-## Autor
-
-Proyecto desarrollado para la certificación de Solana
-
-## Licencia
-
-MIT
