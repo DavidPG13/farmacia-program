@@ -11,7 +11,7 @@ pub mod farmacia_program {
         ctx: Context<CrearFarmacia>,
         nombre: String,
     ) -> Result<()> {
-        let farmacia = &mut ctx.accounts.farmacia_account;
+        let farmacia = &mut ctx.accounts.farmacia_account;a
         farmacia.dueno = *ctx.accounts.dueno.key;
         farmacia.nombre = nombre.clone();
         farmacia.medicamentos_registrados = Vec::new();

@@ -1,13 +1,7 @@
-import * as anchor from "@coral-xyz/anchor";
-import * as web3 from "@solana/web3.js";
-import type { FarmaciaProgram } from "../target/types/farmacia_program";
-
-// Configure the client to use the local cluster
-anchor.setProvider(anchor.AnchorProvider.env());
-
-const program = anchor.workspace.FarmaciaProgram as anchor.Program<FarmaciaProgram>;
-
 // Client
-console.log("My address:", program.provider.publicKey.toString());
-const balance = await program.provider.connection.getBalance(program.provider.publicKey);
+const program = pg.program;
+const wallet = pg.wallet;
+
+console.log("My address:", wallet.publicKey.toString());
+const balance = await pg.connection.getBalance(wallet.publicKey);
 console.log(`My balance: ${balance / web3.LAMPORTS_PER_SOL} SOL`);
